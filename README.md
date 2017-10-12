@@ -6,4 +6,4 @@ Tool for clearing a kafka topic of unwanted messages.
 `go get github.com/daiLlew/topic-bleed`
 
 ### Run
-`./run $TOPIC_NAME $CONSUMER_GROUP_NAME`
+`./run.sh $TOPIC_NAME $CONSUMER_GROUP_NAME`
