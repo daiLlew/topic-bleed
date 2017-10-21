@@ -1,0 +1,6 @@
+---
+topics:
+  - name: report-events
+    consumer_group: dp-import-reporter
+    brokers:
+      - localhost:9092
