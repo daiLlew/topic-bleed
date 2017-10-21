@@ -1,10 +1,9 @@
----
 topics:
-  - name: report-events
-    consumer_group: dp-import-reporter
+  - name: myTopic1
+    consumer_group: myConsumerGroupd1
     brokers:
       - localhost:9092
-  - name: topic2
-    consumer_group: group2
+  - name: myTopic2
+    consumer_group: myConsumerGroupd2
     brokers:
       - localhost:9092

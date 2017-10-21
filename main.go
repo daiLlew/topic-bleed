@@ -12,23 +12,23 @@ import (
 	"sync"
 	"context"
 	"time"
+	"flag"
+	"path/filepath"
+	"errors"
 )
 
 var wg sync.WaitGroup
 
 func main() {
-	source, err := ioutil.ReadFile("config.yml")
-	if err != nil {
-		log.ErrorC("config.yml not found", err, nil)
+	filename := flag.String("config", "config.yml", "The YAML configuration specifying the topics to bleed")
+	flag.Parse()
+
+	if filepath.Ext(*filename) != ".yml" {
+		log.Error(errors.New("cannot load configuration: config mut be a yml file"), nil)
 		os.Exit(1)
 	}
 
-	var config model.Config
-	if err := yaml.Unmarshal(source, &config); err != nil {
-		panic(err)
-	}
-
-	log.Info("successfully loaded config", log.Data{"config": config.Topics})
+	config := loadConfig(*filename)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -85,6 +85,28 @@ func bleed(config model.Config, shutdown chan struct{}, errorChan chan error) {
 			t.Info("exiting bleeder", nil)
 		}(topic)
 	}
+}
+
+func loadConfig(filename string) model.Config {
+	source, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.ErrorC("config file not found", err, log.Data{"filename": filename})
+		os.Exit(1)
+	}
+
+	log.Info("loading configuration file", log.Data{"filename": filename})
+	var config model.Config
+	if err := yaml.Unmarshal(source, &config); err != nil {
+		log.Error(err, nil)
+		os.Exit(1)
+	}
+
+	if err := config.Validate(); err != nil {
+		os.Exit(1)
+	}
+
+	log.Info("successfully loaded config", log.Data{"config": config.String()})
+	return config
 }
 
 func closeConsumer(t model.Topic, consumer *kafka.ConsumerGroup) {
