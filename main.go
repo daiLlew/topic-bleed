@@ -1,18 +1,20 @@
 package main
 
 import (
-	"context"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 	"gopkg.in/yaml.v2"
 	"github.com/daiLlew/topic-bleed/model"
 	"io/ioutil"
 	"sync"
+	"context"
+	"time"
 )
+
+var wg sync.WaitGroup
 
 func main() {
 	source, err := ioutil.ReadFile("config.yml")
@@ -33,45 +35,7 @@ func main() {
 	shutdown := make(chan struct{}, 1)
 	errorChan := make(chan error, 1)
 
-	var wg sync.WaitGroup
-	wg.Add(len(config.Topics))
-
-	for _, topic := range config.Topics {
-		go func() {
-			consumer, err := kafka.NewConsumerGroup(topic.Brokers, topic.Name, topic.ConsumerGroup, kafka.OffsetNewest)
-			if err != nil {
-				log.ErrorC("failed to create kafka consumer", err, log.Data{"topic": topic})
-				wg.Done()
-				os.Exit(1)
-			}
-
-			running := true
-
-			for running {
-				select {
-				case message := <-consumer.Incoming():
-					topic.Info("bleeding message from topic", nil)
-					message.Commit()
-				case err := <-consumer.Errors():
-					topic.ErrorC("consumer errors chan received error", err, nil)
-					errorChan <- err
-					running = false
-				case <-shutdown:
-					topic.Info("received shutting down notification, attempting to close consumer", nil)
-
-					ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
-					err := consumer.Close(ctx);
-					if err != nil {
-						topic.ErrorC("consumer.Close returned an error", err, nil)
-					} else {
-						topic.Info("consumer closed successfully", nil)
-					}
-					running = false
-				}
-			}
-			wg.Done()
-		}()
-	}
+	bleed(config, shutdown, errorChan)
 
 	select {
 	case sig := <-sigChan:
@@ -84,4 +48,51 @@ func main() {
 
 	wg.Wait()
 	log.Info("shutdown complete", nil)
+}
+
+func bleed(config model.Config, shutdown chan struct{}, errorChan chan error) {
+	for _, topic := range config.Topics {
+		consumer, err := kafka.NewConsumerGroup(topic.Brokers, topic.Name, topic.ConsumerGroup, kafka.OffsetNewest)
+		if err != nil {
+			topic.ErrorC("failed to create kafka consumer", err, nil)
+			wg.Done()
+			errorChan <- err
+			break
+		}
+
+		wg.Add(1)
+
+		go func(t model.Topic) {
+			running := true
+			for running {
+				select {
+				case message := <-consumer.Incoming():
+					t.Info("bleeding message from topic", nil)
+					message.Commit()
+				case err := <-consumer.Errors():
+					t.ErrorC("consumer errors chan received error", err, nil)
+					closeConsumer(t, consumer)
+					running = false
+					errorChan <- err
+				case <-shutdown:
+					t.Info("received shutting down notification, attempting to close consumer", nil)
+					closeConsumer(t, consumer)
+					running = false
+				}
+			}
+
+			wg.Done()
+			t.Info("exiting bleeder", nil)
+		}(topic)
+	}
+}
+
+func closeConsumer(t model.Topic, consumer *kafka.ConsumerGroup) {
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	err := consumer.Close(ctx)
+	if err != nil {
+		t.ErrorC("consumer.Close returned an error", err, nil)
+	} else {
+		t.Info("consumer closed successfully", nil)
+	}
 }
