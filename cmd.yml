@@ -1,0 +1,37 @@
+topics:
+  # Dimension extractor
+  - service: dimension-extractor
+    name: input-file-available
+    consumer_group: input-file-available
+    brokers:
+      - localhost:9092
+  # Dimension importer
+  - service: dimension-importer
+    name: dimensions-extracted
+    consumer_group: dimension-importer
+    brokers:
+      - localhost:9092
+  # Observation extractor
+  - service: observation-extractor
+    name: dimensions-inserted
+    consumer_group: dimensions-inserted
+    brokers:
+      - localhost:9092
+  # Observation importer
+  - service: observation-importer
+    name: dimensions-inserted
+    consumer_group: dimensions-inserted
+    brokers:
+      - localhost:9092
+  # import tracker
+  - service: import-tracker
+    name: import-observations-inserted
+    consumer_group: service-namespace
+    brokers:
+      - localhost:9092
+  # error reporter
+  - service: error-reporter
+    name: report-events
+    consumer_group: dp-import-reporter
+    brokers:
+      - localhost:9092

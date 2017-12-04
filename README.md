@@ -9,11 +9,13 @@ Tool for clearing a kafka topic of unwanted messages.
 Configure which topic(s) you wish to bleed by through a configuration `.yml` file in the root dir. Example config:
 ```yaml
 topics:
-  - name: myTopic1
+  - service: myService1
+    name: myTopic1
     consumer_group: myConsumerGroupd1
     brokers:
       - localhost:9092
-  - name: myTopic2
+  - service: myService2
+    name: myTopic2
     consumer_group: myConsumerGroupd2
     brokers:
       - localhost:9092

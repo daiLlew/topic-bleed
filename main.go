@@ -1,20 +1,21 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
+	"github.com/daiLlew/topic-bleed/model"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"os"
 	"os/signal"
-	"syscall"
-	"gopkg.in/yaml.v2"
-	"github.com/daiLlew/topic-bleed/model"
-	"io/ioutil"
-	"sync"
-	"context"
-	"time"
-	"flag"
 	"path/filepath"
-	"errors"
+	"sync"
+	"syscall"
+	"time"
 )
 
 var wg sync.WaitGroup
@@ -67,7 +68,7 @@ func bleed(config model.Config, shutdown chan struct{}, errorChan chan error) {
 			for running {
 				select {
 				case message := <-consumer.Incoming():
-					t.Info("bleeding message from topic", nil)
+					t.Info(fmt.Sprintf("service: %s bleeding message from topic", t.Service), nil)
 					message.Commit()
 				case err := <-consumer.Errors():
 					t.ErrorC("consumer errors chan received error", err, nil)
@@ -105,7 +106,12 @@ func loadConfig(filename string) model.Config {
 		os.Exit(1)
 	}
 
-	log.Info("successfully loaded config", log.Data{"config": config.String()})
+	services := []string{}
+	for _, t := range config.Topics {
+		services = append(services, t.Service)
+	}
+	log.Info("Setting up topic-bleed for the following services:", log.Data{"services": services})
+
 	return config
 }
 

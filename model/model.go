@@ -1,12 +1,13 @@
 package model
 
 import (
-	"github.com/ONSdigital/go-ns/log"
 	"encoding/json"
 	"errors"
+	"github.com/ONSdigital/go-ns/log"
 )
 
 type Topic struct {
+	Service       string   `yaml:"service"`
 	Name          string   `yaml:"name"`
 	ConsumerGroup string   `yaml:"consumer_group"`
 	Brokers       []string `yaml:"brokers"`
